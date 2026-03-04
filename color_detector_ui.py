@@ -176,7 +176,7 @@ class ColorDetectorUI:
         if not self.cap.isOpened():
             # Fallback to index 1 if 0 fails
             print("嘗試攝像頭索引 1...")
-            self.cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+            self.cap = cv2.VideoCapture(0)
         
         if self.cap.isOpened():
             print(f"✓ 攝像頭已打開")
