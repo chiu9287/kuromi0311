@@ -639,7 +639,7 @@ class ColorDetectorUI:
         if self.grip_in_progress:
             print("[左位] 忽略：夾取流程進行中")
             return
-        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
+        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
         print("[左位] 已發送: GPIO20=LOW")
         GPIO.output(STATE_TRIGGER, GPIO.LOW)
         time.sleep(1)
@@ -650,7 +650,7 @@ class ColorDetectorUI:
         if self.grip_in_progress:
             print("[右位] 忽略：夾取流程進行中")
             return
-        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
+        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
         print("[右位] 已發送: GPIO20=HIGH")
         GPIO.output(STATE_TRIGGER, GPIO.LOW)
         time.sleep(1)
