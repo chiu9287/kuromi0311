@@ -253,7 +253,7 @@ class ColorDetectorUI:
             GPIO.output(CIRCLE_BIT0, GPIO.HIGH)  # HIGH = inactive
             GPIO.output(CIRCLE_BIT1, GPIO.HIGH)  # HIGH = inactive
             GPIO.output(POSITION_TRIGGER, GPIO.HIGH)  # HIGH = inactive
-            GPIO.output(STATE_TRIGGER, GPIO.LOW)  # Default LOW; pulse HIGH on grip
+            GPIO.output(STATE_TRIGGER, GPIO.HIGH)  # Default HIGH; pulse LOW on grip
         except Exception as e:
             print(f"[WARNING] GPIO initialization error: {e}")
     
@@ -548,21 +548,21 @@ class ColorDetectorUI:
         threading.Thread(target=self.pump_deflate, args=(duration,), daemon=True).start()
     
     def send_left_position(self):
-        """Send left position signal: GPIO20 -> LOW"""
-        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
-        print("[左位] 已發送: GPIO20=LOW")
+        """Send left position signal: GPIO20 -> HIGH"""
+        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
+        print("[左位] 已發送: GPIO20=HIGH")
     
     def send_right_position(self):
-        """Send right position signal: GPIO20 -> HIGH"""
-        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
-        print("[右位] 已發送: GPIO20=HIGH")
+        """Send right position signal: GPIO20 -> LOW"""
+        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
+        print("[右位] 已發送: GPIO20=LOW")
     
     def send_grip(self):
-        """Send grip command: GPIO21 -> HIGH for about 1 second"""
-        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
-        time.sleep(1)
+        """Send grip command: GPIO21 -> LOW for about 1 second"""
         GPIO.output(STATE_TRIGGER, GPIO.LOW)
-        print("[夾取] 已發送: GPIO21=HIGH (1秒)")
+        time.sleep(1)
+        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
+        print("[夾取] 已發送: GPIO21=LOW (1秒)")
     
     def toggle_lock(self):
         """Toggle lock state and update recorded circles"""
