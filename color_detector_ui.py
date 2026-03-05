@@ -54,9 +54,10 @@ VALVE_FWD = 19          # L298N IN1: Pump motor forward (inflate)
 VALVE_BWD = 26          # L298N IN2: Pump motor backward (deflate)
 
 # Position control pins
-POSITION_TRIGGER = 21   # Trigger signal for position movement
-CIRCLE_BIT0 = 16        # Circle type encoding bit 0 (大小)
-CIRCLE_BIT1 = 20        # Circle type encoding bit 1 (顏色)
+CIRCLE_BIT0 = 12        # Circle type encoding bit 0 (圓圈種類)
+CIRCLE_BIT1 = 16        # Circle type encoding bit 1 (圓圈種類)
+POSITION_TRIGGER = 20   # Trigger signal for position movement
+STATE_TRIGGER = 21      # State trigger signal
 
 class DualSlider(Frame):
     def __init__(self, parent, min_val, max_val, length, command=None, bg='white'):
@@ -245,12 +246,14 @@ class ColorDetectorUI:
             GPIO.output(VALVE_BWD, GPIO.LOW)
             
             # Set up position control pins
-            GPIO.setup(POSITION_TRIGGER, GPIO.OUT)
             GPIO.setup(CIRCLE_BIT0, GPIO.OUT)
             GPIO.setup(CIRCLE_BIT1, GPIO.OUT)
-            GPIO.output(POSITION_TRIGGER, GPIO.LOW)
-            GPIO.output(CIRCLE_BIT0, GPIO.LOW)
-            GPIO.output(CIRCLE_BIT1, GPIO.LOW)
+            GPIO.setup(POSITION_TRIGGER, GPIO.OUT)
+            GPIO.setup(STATE_TRIGGER, GPIO.OUT)
+            GPIO.output(CIRCLE_BIT0, GPIO.HIGH)  # HIGH = inactive
+            GPIO.output(CIRCLE_BIT1, GPIO.HIGH)  # HIGH = inactive
+            GPIO.output(POSITION_TRIGGER, GPIO.HIGH)  # HIGH = inactive
+            GPIO.output(STATE_TRIGGER, GPIO.HIGH)  # HIGH = inactive
         except Exception as e:
             print(f"[WARNING] GPIO initialization error: {e}")
     
@@ -259,43 +262,43 @@ class ColorDetectorUI:
         key = f'{color}_{size}'
         if key in GRIP_PINS:
             pin = GRIP_PINS[key]
-            GPIO.output(pin, GPIO.HIGH)
+            GPIO.output(pin, GPIO.LOW)  # LOW activates (inverse logic)
             time.sleep(0.5)
-            GPIO.output(pin, GPIO.LOW)
+            GPIO.output(pin, GPIO.HIGH)
             print(f"Gripped {key}")
     
     def pump_inflate(self, duration):
         """Control pump to inflate for specified duration (seconds)"""
-        GPIO.output(PUMP_FWD, GPIO.HIGH)
-        GPIO.output(PUMP_BWD, GPIO.LOW)
+        GPIO.output(PUMP_FWD, GPIO.LOW)  # LOW activates
+        GPIO.output(PUMP_BWD, GPIO.HIGH)  # HIGH deactivates
         time.sleep(duration)
-        GPIO.output(PUMP_FWD, GPIO.LOW)
+        GPIO.output(PUMP_FWD, GPIO.HIGH)  # HIGH deactivates
         print(f"Inflated for {duration}s")
     
     def pump_deflate(self, duration):
         """Control pump to deflate for specified duration (seconds)"""
-        GPIO.output(VALVE_FWD, GPIO.HIGH)
-        GPIO.output(VALVE_BWD, GPIO.LOW)
+        GPIO.output(VALVE_FWD, GPIO.LOW)  # LOW activates
+        GPIO.output(VALVE_BWD, GPIO.HIGH)  # HIGH deactivates
         time.sleep(duration)
-        GPIO.output(VALVE_FWD, GPIO.LOW)
+        GPIO.output(VALVE_FWD, GPIO.HIGH)  # HIGH deactivates
         print(f"Deflated for {duration}s")
     
     def send_signal(self, state):
         """Send signal (HIGH or LOW) via signal pin"""
-        GPIO.output(SIGNAL_PIN, GPIO.HIGH if state else GPIO.LOW)
-        print(f"Signal sent: {'HIGH' if state else 'LOW'}")
+        GPIO.output(SIGNAL_PIN, GPIO.LOW if state else GPIO.HIGH)  # LOW for active
+        print(f"Signal sent: {'LOW' if state else 'HIGH'}")
     
     def cleanup_gpio(self):
         """Clean up all GPIO pins"""
         try:
-            GPIO.output(PUMP_FWD, GPIO.LOW)
-            GPIO.output(PUMP_BWD, GPIO.LOW)
+            GPIO.output(PUMP_FWD, GPIO.HIGH)  # HIGH deactivates
+            GPIO.output(PUMP_BWD, GPIO.HIGH)  # HIGH deactivates
 
             
-            GPIO.output(VALVE_FWD, GPIO.HIGH)
-            GPIO.output(VALVE_BWD, GPIO.LOW)
+            GPIO.output(VALVE_FWD, GPIO.LOW)  # LOW activates to deflate
+            GPIO.output(VALVE_BWD, GPIO.HIGH)  # HIGH deactivates
             time.sleep(1)
-            GPIO.output(VALVE_FWD, GPIO.LOW)
+            GPIO.output(VALVE_FWD, GPIO.HIGH)  # HIGH deactivates
             
             if HAS_GPIO:
                 GPIO.cleanup()
@@ -555,25 +558,25 @@ class ColorDetectorUI:
         
         color, size = circle_info
         
-        # Encoding: 大紅圓圈=10, 小紅圓圈=00, 大藍圓圈=11, 小藍圓圈=01
-        # BIT0 (GPIO16) = 大小 (big=1, small=0)
-        # BIT1 (GPIO20) = 顏色 (blue=1, red=0)
-        bit0 = GPIO.HIGH if size == "big" else GPIO.LOW
-        bit1 = GPIO.HIGH if color == "blue" else GPIO.LOW
+        # Encoding (inverse logic): 大紅圓圈=01, 小紅圓圈=11, 大藍圓圈=00, 小藍圓圈=10
+        # BIT0 (GPIO16) = 大小 (big=0, small=1) - LOW activates for big
+        # BIT1 (GPIO20) = 顏色 (blue=0, red=1) - LOW activates for blue
+        bit0 = GPIO.LOW if size == "big" else GPIO.HIGH  # Inverted
+        bit1 = GPIO.LOW if color == "blue" else GPIO.HIGH  # Inverted
         
         # Set circle type encoding
         GPIO.output(CIRCLE_BIT0, bit0)
         GPIO.output(CIRCLE_BIT1, bit1)
         time.sleep(0.05)  # Small delay for signal stability
         
-        # Send trigger pulse
-        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
+        # Send trigger pulse (LOW to trigger)
+        GPIO.output(POSITION_TRIGGER, GPIO.LOW)  # Inverted
         time.sleep(0.1)
-        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
+        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)  # Inverted
         
         # Reset encoding pins
-        GPIO.output(CIRCLE_BIT0, GPIO.LOW)
-        GPIO.output(CIRCLE_BIT1, GPIO.LOW)
+        GPIO.output(CIRCLE_BIT0, GPIO.HIGH)  # HIGH = inactive
+        GPIO.output(CIRCLE_BIT1, GPIO.HIGH)  # HIGH = inactive
         
         print(f"[左位] 已發送: {color} {size} (BIT0={bit0}, BIT1={bit1})")
     
