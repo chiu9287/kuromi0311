@@ -253,7 +253,7 @@ class ColorDetectorUI:
             GPIO.output(CIRCLE_BIT0, GPIO.HIGH)  # HIGH = inactive
             GPIO.output(CIRCLE_BIT1, GPIO.HIGH)  # HIGH = inactive
             GPIO.output(POSITION_TRIGGER, GPIO.HIGH)  # HIGH = inactive
-            GPIO.output(STATE_TRIGGER, GPIO.HIGH)  # HIGH = inactive
+            GPIO.output(STATE_TRIGGER, GPIO.LOW)  # Default LOW; pulse HIGH on grip
         except Exception as e:
             print(f"[WARNING] GPIO initialization error: {e}")
     
@@ -548,52 +548,21 @@ class ColorDetectorUI:
         threading.Thread(target=self.pump_deflate, args=(duration,), daemon=True).start()
     
     def send_left_position(self):
-        """Send left position signal with circle type encoding"""
-        # Check if left circle is detected or recorded
-        circle_info = self.recorded_left if self.is_locked else self.last_detected_left
-        
-        if circle_info is None:
-            print("[警告] 左側未偵測到圓圈")
-            return
-        
-        color, size = circle_info
-        
-        # Encoding (inverse logic): 大紅圓圈=01, 小紅圓圈=11, 大藍圓圈=00, 小藍圓圈=10
-        # BIT0 (GPIO16) = 大小 (big=0, small=1) - LOW activates for big
-        # BIT1 (GPIO20) = 顏色 (blue=0, red=1) - LOW activates for blue
-        bit0 = GPIO.LOW if size == "big" else GPIO.HIGH  # Inverted
-        bit1 = GPIO.LOW if color == "blue" else GPIO.HIGH  # Inverted
-        
-        # Set circle type encoding
-        GPIO.output(CIRCLE_BIT0, bit0)
-        GPIO.output(CIRCLE_BIT1, bit1)
-        time.sleep(0.05)  # Small delay for signal stability
-        
-        # Send trigger pulse (LOW to trigger)
-        GPIO.output(POSITION_TRIGGER, GPIO.LOW)  # Inverted
-        time.sleep(0.1)
-        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)  # Inverted
-        
-        # Reset encoding pins
-        GPIO.output(CIRCLE_BIT0, GPIO.HIGH)  # HIGH = inactive
-        GPIO.output(CIRCLE_BIT1, GPIO.HIGH)  # HIGH = inactive
-        
-        print(f"[左位] 已發送: {color} {size} (BIT0={bit0}, BIT1={bit1})")
+        """Send left position signal: GPIO20 -> LOW"""
+        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
+        print("[左位] 已發送: GPIO20=LOW")
     
     def send_right_position(self):
-        """Send right position signal with circle type encoding"""
-        # Check if right circle is detected or recorded
-        circle_info = self.recorded_right if self.is_locked else self.last_detected_right
-        
-        if circle_info is None:
-            print("[警告] 右側未偵測到圓圈")
-            return
-        
-        print(f"[右位] 功能待實現")
+        """Send right position signal: GPIO20 -> HIGH"""
+        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
+        print("[右位] 已發送: GPIO20=HIGH")
     
     def send_grip(self):
-        """Send grip command"""
-        print(f"[夾取] 功能待實現")
+        """Send grip command: GPIO21 -> HIGH for about 1 second"""
+        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
+        time.sleep(1)
+        GPIO.output(STATE_TRIGGER, GPIO.LOW)
+        print("[夾取] 已發送: GPIO21=HIGH (1秒)")
     
     def toggle_lock(self):
         """Toggle lock state and update recorded circles"""
