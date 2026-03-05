@@ -551,11 +551,18 @@ class ColorDetectorUI:
         """Send left position signal: GPIO20 -> HIGH"""
         GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
         print("[左位] 已發送: GPIO20=HIGH")
+        
+        GPIO.output(STATE_TRIGGER, GPIO.LOW)
+        time.sleep(1)
+        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
     
     def send_right_position(self):
         """Send right position signal: GPIO20 -> LOW"""
         GPIO.output(POSITION_TRIGGER, GPIO.LOW)
         print("[右位] 已發送: GPIO20=LOW")
+        GPIO.output(STATE_TRIGGER, GPIO.LOW)
+        time.sleep(1)
+        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
     
     def send_grip(self):
         """Send grip command: GPIO21 -> LOW for about 1 second"""
