@@ -274,7 +274,7 @@ class ColorDetectorUI:
             GPIO.output(CIRCLE_BIT0, GPIO.HIGH)  # HIGH = inactive
             GPIO.output(CIRCLE_BIT1, GPIO.HIGH)  # HIGH = inactive
             GPIO.output(POSITION_TRIGGER, GPIO.HIGH)  # HIGH = inactive
-            GPIO.output(STATE_TRIGGER, GPIO.LOW)  # Default LOW; pulse HIGH as completion ACK
+            GPIO.output(STATE_TRIGGER, GPIO.HIGH)  # Default LOW; pulse HIGH as completion ACK
 
             # External trigger input (GPIO4)
             if HAS_GPIO:
@@ -284,11 +284,11 @@ class ColorDetectorUI:
         except Exception as e:
             print(f"[WARNING] GPIO initialization error: {e}")
 
-    def _pulse_state_high(self, duration=1.0):
+    def _pulse_state_high(self, duration=1):
         """Send GPIO21 HIGH pulse for acknowledgment."""
-        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
-        time.sleep(duration)
         GPIO.output(STATE_TRIGGER, GPIO.LOW)
+        time.sleep(1)
+        GPIO.output(STATE_TRIGGER, GPIO.HIGH)
 
     def _wait_for_ready_high(self, timeout=15.0, stage_text=''):
         """Wait for one rising event on GPIO4; returns True when received."""
@@ -634,7 +634,7 @@ class ColorDetectorUI:
         threading.Thread(target=self.pump_deflate, args=(duration,), daemon=True).start()
     
     def send_left_position(self):
-        """Send left position signal and circle info"""
+        """Send left position signal with circle code"""
         if self.grip_in_progress:
             print("[左位] 忽略：夾取流程進行中")
             return
@@ -644,14 +644,14 @@ class ColorDetectorUI:
         if left_info:
             self._send_single_circle_code('left', left_info)
         
-        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
+        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
         print("[左位] 已發送: GPIO20=LOW")
         GPIO.output(STATE_TRIGGER, GPIO.LOW)
         time.sleep(1)
         GPIO.output(STATE_TRIGGER, GPIO.HIGH)
     
     def send_right_position(self):
-        """Send right position signal and circle info"""
+        """Send right position signal with circle code"""
         if self.grip_in_progress:
             print("[右位] 忽略：夾取流程進行中")
             return
@@ -661,7 +661,7 @@ class ColorDetectorUI:
         if right_info:
             self._send_single_circle_code('right', right_info)
         
-        GPIO.output(POSITION_TRIGGER, GPIO.HIGH)
+        GPIO.output(POSITION_TRIGGER, GPIO.LOW)
         print("[右位] 已發送: GPIO20=HIGH")
         GPIO.output(STATE_TRIGGER, GPIO.LOW)
         time.sleep(1)
@@ -676,8 +676,8 @@ class ColorDetectorUI:
                 print("[夾取] 第 1 次等待逾時，流程中止")
                 return
 
-            self.pump_inflate(1.0)
-            self._pulse_state_high(1.0)
+            self.pump_inflate(3.0)
+            self._pulse_state_high(1)
             print("[夾取] 第 1 階段完成：已充氣並送出 GPIO21 HIGH 1 秒")
 
             print("[夾取] 等待第 2 次 GPIO4=HIGH (洩氣)")
@@ -686,7 +686,7 @@ class ColorDetectorUI:
                 return
 
             self.pump_deflate(1.0)
-            self._pulse_state_high(1.0)
+            self._pulse_state_high(1)
             print("[夾取] 第 2 階段完成：已洩氣並送出 GPIO21 HIGH 1 秒")
         finally:
             self.grip_in_progress = False
@@ -696,6 +696,8 @@ class ColorDetectorUI:
         if self.grip_in_progress:
             print("[夾取] 忽略：流程已在執行中")
             return
+        
+        self._pulse_state_high(1)
         threading.Thread(target=self._grip_sequence, daemon=True).start()
     
     def toggle_lock(self):
@@ -703,7 +705,7 @@ class ColorDetectorUI:
         self.is_locked = not self.is_locked
         if self.is_locked:
             self.lock_btn.config(text="🔒 已鎖定", bg='#f44336')
-            # Snapshot current detections (don't send signal yet)
+            # Snapshot current detections, don't send signal yet
             if self.last_detected_left:
                 self.recorded_left = self.last_detected_left
             if self.last_detected_right:
