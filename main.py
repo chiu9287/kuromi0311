@@ -486,12 +486,12 @@ class ColorDetectorUI:
             self.hsv_sliders[key_high] = ds
             return ds, (min_lbl, max_lbl)
         
-        # Hue (0-179)
-        create_slider_row(hsv_frame, "H", 179, 'h_low', 'h_high')
-        # Saturation (0-255)
-        create_slider_row(hsv_frame, "S", 255, 's_low', 's_high')
-        # Value (0-255)
-        create_slider_row(hsv_frame, "V", 255, 'v_low', 'v_high')
+        # Hue (UI 0-360)
+        create_slider_row(hsv_frame, "H", 360, 'h_low', 'h_high')
+        # Saturation (UI 0-100)
+        create_slider_row(hsv_frame, "S", 100, 's_low', 's_high')
+        # Value (UI 0-100)
+        create_slider_row(hsv_frame, "V", 100, 'v_low', 'v_high')
 
         
         # Right middle - size threshold control
@@ -570,24 +570,48 @@ class ColorDetectorUI:
         
         # Initialize slider values
         self.update_slider_values()
+
+    def _cv_h_to_ui(self, h_val):
+        """Convert OpenCV Hue (0-179) to UI Hue (0-360)."""
+        return int(round(h_val * 2))
+
+    def _ui_h_to_cv(self, h_val):
+        """Convert UI Hue (0-360) to OpenCV Hue (0-179)."""
+        return max(0, min(179, int(round(h_val / 2))))
+
+    def _cv_sv_to_ui(self, sv_val):
+        """Convert OpenCV S/V (0-255) to UI S/V (0-100)."""
+        return max(0, min(100, int(round(sv_val * 100 / 255))))
+
+    def _ui_sv_to_cv(self, sv_val):
+        """Convert UI S/V (0-100) to OpenCV S/V (0-255)."""
+        return max(0, min(255, int(round(sv_val * 255 / 100))))
     
     def update_slider_values(self):
         """Update slider values based on current color selection"""
         color_data = self.hsv_ranges[self.current_color]
         self.color_name_label.config(text=f"Current Color: {color_data['name']}")
+
+        # Convert OpenCV HSV values to UI ranges
+        h_low_ui = self._cv_h_to_ui(color_data['low'][0])
+        h_high_ui = self._cv_h_to_ui(color_data['high'][0])
+        s_low_ui = self._cv_sv_to_ui(color_data['low'][1])
+        s_high_ui = self._cv_sv_to_ui(color_data['high'][1])
+        v_low_ui = self._cv_sv_to_ui(color_data['low'][2])
+        v_high_ui = self._cv_sv_to_ui(color_data['high'][2])
         
         # set dual sliders
-        self.hsv_sliders['h_low'].set(color_data['low'][0], color_data['high'][0])
-        self.hsv_sliders['s_low'].set(color_data['low'][1], color_data['high'][1])
-        self.hsv_sliders['v_low'].set(color_data['low'][2], color_data['high'][2])
+        self.hsv_sliders['h_low'].set(h_low_ui, h_high_ui)
+        self.hsv_sliders['s_low'].set(s_low_ui, s_high_ui)
+        self.hsv_sliders['v_low'].set(v_low_ui, v_high_ui)
         
         # update labels manually (min and max separately)
-        self.h_low_label.config(text=f"{color_data['low'][0]}")
-        self.h_high_label.config(text=f"{color_data['high'][0]}")
-        self.s_low_label.config(text=f"{color_data['low'][1]}")
-        self.s_high_label.config(text=f"{color_data['high'][1]}")
-        self.v_low_label.config(text=f"{color_data['low'][2]}")
-        self.v_high_label.config(text=f"{color_data['high'][2]}")
+        self.h_low_label.config(text=f"{h_low_ui}")
+        self.h_high_label.config(text=f"{h_high_ui}")
+        self.s_low_label.config(text=f"{s_low_ui}")
+        self.s_high_label.config(text=f"{s_high_ui}")
+        self.v_low_label.config(text=f"{v_low_ui}")
+        self.v_high_label.config(text=f"{v_high_ui}")
         
         if self.current_color == 0:
             self.red_btn.config(relief=tk.SUNKEN, bd=3)
@@ -599,23 +623,25 @@ class ColorDetectorUI:
     def update_hsv(self, value=None):
         """Update HSV values from dual sliders"""
         color_data = self.hsv_ranges[self.current_color]
-        h_low, h_high = self.hsv_sliders['h_low'].get()
-        s_low, s_high = self.hsv_sliders['s_low'].get()
-        v_low, v_high = self.hsv_sliders['v_low'].get()
-        color_data['low'][0] = h_low
-        color_data['high'][0] = h_high
-        color_data['low'][1] = s_low
-        color_data['high'][1] = s_high
-        color_data['low'][2] = v_low
-        color_data['high'][2] = v_high
+        h_low_ui, h_high_ui = self.hsv_sliders['h_low'].get()
+        s_low_ui, s_high_ui = self.hsv_sliders['s_low'].get()
+        v_low_ui, v_high_ui = self.hsv_sliders['v_low'].get()
+
+        # Convert UI ranges to OpenCV HSV ranges for cv2.inRange
+        color_data['low'][0] = self._ui_h_to_cv(h_low_ui)
+        color_data['high'][0] = self._ui_h_to_cv(h_high_ui)
+        color_data['low'][1] = self._ui_sv_to_cv(s_low_ui)
+        color_data['high'][1] = self._ui_sv_to_cv(s_high_ui)
+        color_data['low'][2] = self._ui_sv_to_cv(v_low_ui)
+        color_data['high'][2] = self._ui_sv_to_cv(v_high_ui)
         
         # Update labels separately
-        self.h_low_label.config(text=f"{h_low}")
-        self.h_high_label.config(text=f"{h_high}")
-        self.s_low_label.config(text=f"{s_low}")
-        self.s_high_label.config(text=f"{s_high}")
-        self.v_low_label.config(text=f"{v_low}")
-        self.v_high_label.config(text=f"{v_high}")
+        self.h_low_label.config(text=f"{h_low_ui}")
+        self.h_high_label.config(text=f"{h_high_ui}")
+        self.s_low_label.config(text=f"{s_low_ui}")
+        self.s_high_label.config(text=f"{s_high_ui}")
+        self.v_low_label.config(text=f"{v_low_ui}")
+        self.v_high_label.config(text=f"{v_high_ui}")
     
     def select_red(self):
         self.current_color = 0
